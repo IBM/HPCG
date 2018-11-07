@@ -24,6 +24,10 @@
 #include <cstdlib>
 #include "Geometry.hpp"
 
+#ifndef HPCG_NO_OPENMP
+#include <omp.h>
+#endif
+
 struct Vector_STRUCT {
   local_int_t localLength;  //!< length of local portion of the vector
   double * values;          //!< array of values
@@ -31,7 +35,7 @@ struct Vector_STRUCT {
    This is for storing optimized data structures created in OptimizeProblem and
    used inside optimized ComputeSPMV().
    */
-  void * optimizationData;
+  local_int_t ** optimizationData;
 
 };
 typedef struct Vector_STRUCT Vector;
@@ -85,6 +89,36 @@ inline void FillRandomVector(Vector & v) {
   return;
 }
 /*!
+  Copy optimize data
+
+  @param[in] v Input vector
+  @param[in] w Output vector
+ */
+inline void CopyOptimizations(const Vector & v, Vector & w) {
+  local_int_t localLength = v.localLength;
+  assert(w.localLength >= localLength);
+
+#ifndef HPCG_NO_OPENMP
+  if (v.optimizationData)
+  {
+    int n_threads = omp_get_max_threads();
+    if (!w.optimizationData)
+    {
+        w.optimizationData = new local_int_t*[n_threads];
+        for (int i = 0; i < n_threads; ++i)
+          w.optimizationData[i] = new local_int_t[2]();
+    }
+    for (int i = 0; i < n_threads; ++i)
+    {
+      w.optimizationData[i][0] = v.optimizationData[i][0];
+      w.optimizationData[i][1] = v.optimizationData[i][1];
+    }
+  }
+#endif
+
+  return;
+}
+/*!
   Copy input vector to output vector.
 
   @param[in] v Input vector
@@ -96,10 +130,13 @@ inline void CopyVector(const Vector & v, Vector & w) {
   double * vv = v.values;
   double * wv = w.values;
   for (int i=0; i<localLength; ++i) wv[i] = vv[i];
+
+#ifndef HPCG_NO_OPENMP
+  CopyOptimizations(v, w);
+#endif
+
   return;
 }
-
-
 /*!
   Deallocates the members of the data structure of the known system matrix provided they are not 0.
 
@@ -109,6 +146,17 @@ inline void DeleteVector(Vector & v) {
 
   delete [] v.values;
   v.localLength = 0;
+
+#ifndef HPCG_NO_OPENMP
+  // Delete optimization data
+  if (v.optimizationData)
+  {
+    for (int i = 0; i < omp_get_max_threads(); ++i)
+      delete [] v.optimizationData[i];
+    delete [] v.optimizationData;
+  }
+#endif
+
   return;
 }
 

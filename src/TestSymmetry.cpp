@@ -67,6 +67,12 @@ int TestSymmetry(SparseMatrix & A, Vector & b, Vector & xexact, TestSymmetryData
  InitializeVector(y_ncol, ncol);
  InitializeVector(z_ncol, ncol);
 
+ // We need to add this method to make use of the optimized structure
+ // TODO Find a cleaner solution
+ CopyOptimizations(b,x_ncol);
+ CopyOptimizations(b,y_ncol);
+ CopyOptimizations(b,z_ncol);
+
  double t4 = 0.0; // Needed for dot-product call, otherwise unused
  testsymmetry_data.count_fail = 0;
 

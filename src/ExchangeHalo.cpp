@@ -108,5 +108,80 @@ void ExchangeHalo(const SparseMatrix & A, Vector & x) {
 
   return;
 }
-#endif
-// ifndef HPCG_NO_MPI
+
+void ExchangeHalo_opt(const SparseMatrix & A, Vector & x) {
+
+  // Extract Matrix pieces
+
+  local_int_t localNumberOfRows = A.localNumberOfRows;
+  int num_neighbors = A.numberOfSendNeighbors;
+  local_int_t * receiveLength = A.receiveLength;
+  local_int_t * sendLength = A.sendLength;
+  int * neighbors = A.neighbors;
+  double * sendBuffer = A.sendBuffer;
+  local_int_t totalToBeSent = A.totalToBeSent;
+  local_int_t * elementsToSend = A.elementsToSend;
+
+  double * const xv = x.values;
+
+//  int size, rank; // Number of MPI processes, My process ID
+//  MPI_Comm_size(MPI_COMM_WORLD, &size);
+//  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  //
+  //  first post receives, these are immediate receives
+  //  Do not wait for result to come, will do that at the
+  //  wait call below.
+  //
+
+  int MPI_MY_TAG = 99;
+
+  // MPI_Request send-receive
+  MPI_Request * request = new MPI_Request[num_neighbors*2];
+  MPI_Status  * status  = new MPI_Status [num_neighbors*2];
+  //MPI_Request * request = new MPI_Request[num_neighbors];
+
+  //
+  // Externals are at end of locals
+  //
+  double * x_external = (double *) xv + localNumberOfRows;
+
+  // Post receives first
+  // TODO: Thread this loop
+  for (int i = 0; i < num_neighbors; ++i) {
+    local_int_t n_recv = receiveLength[i];
+    MPI_Irecv(x_external, n_recv, MPI_DOUBLE, neighbors[i], MPI_MY_TAG, MPI_COMM_WORLD, request+i);
+    x_external += n_recv;
+  }
+
+
+  //
+  // Fill up send buffer
+  //
+
+  // TODO: Thread this loop
+  for (local_int_t i=0; i<totalToBeSent; ++i) sendBuffer[i] = xv[elementsToSend[i]];
+
+  //
+  // Send to each neighbor
+  //
+
+  // TODO: Thread this loop
+  for (int i = 0; i < num_neighbors; ++i) {
+    local_int_t n_send = sendLength[i];
+    MPI_Isend(sendBuffer, n_send, MPI_DOUBLE, neighbors[i], MPI_MY_TAG, MPI_COMM_WORLD, request+num_neighbors+i);
+    //MPI_Send(sendBuffer, n_send, MPI_DOUBLE, neighbors[i], MPI_MY_TAG, MPI_COMM_WORLD);
+    sendBuffer += n_send;
+  }
+
+  // Final waitall
+  MPI_Waitall ( num_neighbors*2, request, status );
+
+
+  delete [] status;
+  delete [] request;
+
+  return;
+}
+
+#endif // ifndef HPCG_NO_MPI

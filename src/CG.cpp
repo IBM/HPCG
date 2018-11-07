@@ -31,6 +31,9 @@
 #include "ComputeDotProduct.hpp"
 #include "ComputeWAXPBY.hpp"
 
+#if defined(__IBMC__) || defined(__IBMCPP__)
+#include "ibm.hpp"
+#endif
 
 // Use TICK and TOCK to time a code section in MATLAB-like fashion
 #define TICK()  t0 = mytimer() //!< record current time in 't0'
@@ -58,7 +61,7 @@
 */
 int CG(const SparseMatrix & A, CGData & data, const Vector & b, Vector & x,
     const int max_iter, const double tolerance, int & niters, double & normr, double & normr0,
-    double * times, bool doPreconditioning) {
+    double * times, bool doPreconditioning, bool printIterations) {
 
   double t_begin = mytimer();  // Start timing right away
   normr = 0.0;
@@ -96,37 +99,100 @@ int CG(const SparseMatrix & A, CGData & data, const Vector & b, Vector & x,
   normr0 = normr;
 
   // Start iterations
+//#if defined(__bgq__) || defined(__PPC64__)
+  if (printIterations)
+    if ( A.geom->rank == 0 )
+    {
+      printf("\n\n--- Optimized  CG ---\n");
+      printf("Initial Residual: %.16e\n", normr);
+    }
+//#endif
 
   for (int k=1; k<=max_iter && normr/normr0 > tolerance; k++ ) {
+#if defined(__HAVE_HPM)
+    HPM_Start("Prec");
+#endif
     TICK();
     if (doPreconditioning)
       ComputeMG(A, r, z); // Apply preconditioner
     else
       CopyVector (r, z); // copy r to z (no preconditioning)
     TOCK(t5); // Preconditioner apply time
-
+#if defined(__HAVE_HPM)
+    HPM_Stop("Prec");
+#endif
     if (k == 1) {
+#if defined(__HAVE_HPM)
+      HPM_Start("WAXPY");
+#endif
       TICK(); ComputeWAXPBY(nrow, 1.0, z, 0.0, z, p, A.isWaxpbyOptimized); TOCK(t2); // Copy Mr to p
+#if defined(__HAVE_HPM)
+      HPM_Stop("WAXPY");
+      HPM_Start("dot-product");
+#endif
       TICK(); ComputeDotProduct (nrow, r, z, rtz, t4, A.isDotProductOptimized); TOCK(t1); // rtz = r'*z
+#if defined(__HAVE_HPM)
+      HPM_Stop("dot-product");
+#endif
     } else {
       oldrtz = rtz;
+#if defined(__HAVE_HPM)
+      HPM_Start("dot-product");
+#endif
       TICK(); ComputeDotProduct (nrow, r, z, rtz, t4, A.isDotProductOptimized); TOCK(t1); // rtz = r'*z
+#if defined(__HAVE_HPM)
+      HPM_Stop("dot-product");
+#endif
       beta = rtz/oldrtz;
+#if defined(__HAVE_HPM)
+      HPM_Start("WAXPY");
+#endif
       TICK(); ComputeWAXPBY (nrow, 1.0, z, beta, p, p, A.isWaxpbyOptimized);  TOCK(t2); // p = beta*p + z
+#if defined(__HAVE_HPM)
+      HPM_Stop("WAXPY");
+#endif
     }
 
+#if defined(__HAVE_HPM)
+    HPM_Start("SPMV");
+#endif
     TICK(); ComputeSPMV(A, p, Ap); TOCK(t3); // Ap = A*p
+#if defined(__HAVE_HPM)
+    HPM_Stop("SPMV");
+    HPM_Start("dot-product");
+#endif
     TICK(); ComputeDotProduct(nrow, p, Ap, pAp, t4, A.isDotProductOptimized); TOCK(t1); // alpha = p'*Ap
+#if defined(__HAVE_HPM)
+    HPM_Stop("dot-product");
+#endif
     alpha = rtz/pAp;
+#if defined(__HAVE_HPM)
+    HPM_Start("WAXPY");
+#endif
     TICK(); ComputeWAXPBY(nrow, 1.0, x, alpha, p, x, A.isWaxpbyOptimized);// x = x + alpha*p
             ComputeWAXPBY(nrow, 1.0, r, -alpha, Ap, r, A.isWaxpbyOptimized);  TOCK(t2);// r = r - alpha*Ap
+#if defined(__HAVE_HPM)
+    HPM_Stop("WAXPY");
+    HPM_Start("dot-product");
+#endif
     TICK(); ComputeDotProduct(nrow, r, r, normr, t4, A.isDotProductOptimized); TOCK(t1);
+#if defined(__HAVE_HPM)
+    HPM_Stop("dot-product");
+#endif
     normr = sqrt(normr);
 #ifdef HPCG_DEBUG
     if (A.geom->rank==0 && (k%print_freq == 0 || k == max_iter))
       HPCG_fout << "Iteration = "<< k << "   Scaled Residual = "<< normr/normr0 << std::endl;
 #endif
     niters = k;
+
+//#if defined(__bgq__) || defined(__PPC64__)
+    if (printIterations)
+      if ( A.geom->rank == 0 )
+      {
+        printf("Iter: %d, Scaled Residual: %.16e\n", k, normr/normr0);
+      }
+//#endif
   }
 
   // Store times

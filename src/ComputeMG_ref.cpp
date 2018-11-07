@@ -13,7 +13,7 @@
 //@HEADER
 
 /*!
- @file ComputeSYMGS_ref.cpp
+ @file ComputeMG_ref.cpp
 
  HPCG routine
  */

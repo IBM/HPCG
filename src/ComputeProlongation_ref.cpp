@@ -50,3 +50,39 @@ int ComputeProlongation_ref(const SparseMatrix & Af, Vector & xf) {
 
   return 0;
 }
+
+int ComputeProlongation(const SparseMatrix & Af, Vector & xf) {
+
+//#if !defined(__IBMC__) && !defined(__IBMCPP__)
+
+//  return(ComputeProlongation_ref(Af, xf));
+
+//#else
+
+  double * xfv = xf.values;
+  double * xcv = Af.mgData->xc->values;
+  local_int_t * f2c = Af.mgData->f2cOperator;
+
+#pragma disjoint (*xfv, *xcv, *f2c)
+
+  register local_int_t j;
+  register local_int_t jStart;
+  register local_int_t jEnd;
+  register local_int_t tID;
+
+  #pragma omp parallel private (j,jStart,jEnd,tID)
+  {
+    tID = omp_get_thread_num();
+    jStart = Af.Ac->optimizationData[tID][0];
+    jEnd   = Af.Ac->optimizationData[tID][1];
+
+#if defined(__IBMC__) || defined(__IBMCPP__)
+//  #pragma ibm independent_loop
+#endif
+    for (j = jStart; j <= jEnd; ++j)
+        xfv[f2c[j]] += xcv[j];
+  }
+
+  return 0;
+//#endif
+}

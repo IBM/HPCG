@@ -57,7 +57,7 @@
 */
 int CG_ref(const SparseMatrix & A, CGData & data, const Vector & b, Vector & x,
     const int max_iter, const double tolerance, int & niters, double & normr, double & normr0,
-    double * times, bool doPreconditioning) {
+    double * times, bool doPreconditioning, bool printIterations) {
 
   double t_begin = mytimer();  // Start timing right away
   normr = 0.0;
@@ -97,7 +97,14 @@ int CG_ref(const SparseMatrix & A, CGData & data, const Vector & b, Vector & x,
   normr0 = normr;
 
   // Start iterations
-
+//#if defined(__bgq__) || defined(__PPC64__)
+  if (printIterations)
+    if ( A.geom->rank == 0 )
+    {
+      printf("\n\n--- Reference CG ---\n");
+      printf("Initial Residual: %.16e\n", normr);
+    }
+//#endif
   for (int k=1; k<=max_iter && normr/normr0 > tolerance; k++ ) {
     TICK();
     if (doPreconditioning)
@@ -128,6 +135,14 @@ int CG_ref(const SparseMatrix & A, CGData & data, const Vector & b, Vector & x,
       HPCG_fout << "Iteration = "<< k << "   Scaled Residual = "<< normr/normr0 << std::endl;
 #endif
     niters = k;
+
+//#if defined(__bgq__) || defined(__PPC64__)
+    if (printIterations)
+      if ( A.geom->rank == 0 )
+      {
+        printf("Iter: %d, Scaled Residual: %.16e\n", k, normr/normr0);
+      }
+//#endif
   }
 
   // Store times

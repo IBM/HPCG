@@ -19,6 +19,8 @@
 #include "Vector.hpp"
 #include "CGData.hpp"
 
+static global_int_t allocatedMemory2Optimize;
+
 int OptimizeProblem(SparseMatrix & A, CGData & data,  Vector & b, Vector & x, Vector & xexact);
 
 // This helper function should be implemented in a non-trivial way if OptimizeProblem is non-trivial

@@ -53,7 +53,7 @@ using std::endl;
 void ReportResults(const SparseMatrix & A, int numberOfMgLevels, int numberOfCgSets, int refMaxIters,int optMaxIters, double times[],
     const TestCGData & testcg_data, const TestSymmetryData & testsymmetry_data, const TestNormsData & testnorms_data, int global_failure, bool quickPath) {
 
-  double minOfficialTime = 1800; // Any official benchmark result must run at least this many seconds
+  double minOfficialTime = 1800; // Any official benchmark result much run at least this many seconds
 
 #ifndef HPCG_NO_MPI
   double t4 = times[4];
@@ -216,9 +216,9 @@ void ReportResults(const SparseMatrix & A, int numberOfMgLevels, int numberOfCgS
     doc.get("Machine Summary")->add("Threads per processes",A.geom->numThreads);
 
     doc.add("Global Problem Dimensions","");
-    doc.get("Global Problem Dimensions")->add("Global nx",A.geom->gnx);
-    doc.get("Global Problem Dimensions")->add("Global ny",A.geom->gny);
-    doc.get("Global Problem Dimensions")->add("Global nz",A.geom->gnz);
+    doc.get("Global Problem Dimensions")->add("Global nx",A.geom->npx*A.geom->nx);
+    doc.get("Global Problem Dimensions")->add("Global ny",A.geom->npy*A.geom->ny);
+    doc.get("Global Problem Dimensions")->add("Global nz",A.geom->npz*A.geom->nz);
 
     doc.add("Processor Dimensions","");
     doc.get("Processor Dimensions")->add("npx",A.geom->npx);
@@ -228,15 +228,7 @@ void ReportResults(const SparseMatrix & A, int numberOfMgLevels, int numberOfCgS
     doc.add("Local Domain Dimensions","");
     doc.get("Local Domain Dimensions")->add("nx",A.geom->nx);
     doc.get("Local Domain Dimensions")->add("ny",A.geom->ny);
-
-    int ipartz_ids = 0;
-    for (int i=0; i< A.geom->npartz; ++i) {
-      doc.get("Local Domain Dimensions")->add("Lower ipz", ipartz_ids);
-      doc.get("Local Domain Dimensions")->add("Upper ipz", A.geom->partz_ids[i]-1);
-      doc.get("Local Domain Dimensions")->add("nz",A.geom->partz_nz[i]);
-      ipartz_ids = A.geom->partz_ids[i];
-    }
-
+    doc.get("Local Domain Dimensions")->add("nz",A.geom->nz);
 
     doc.add("########## Problem Summary  ##########","");
 

@@ -13,7 +13,7 @@
 //@HEADER
 
 #include <cstdio>
-
+#include <stdlib.h>
 #include "ReadHpcgDat.hpp"
 
 static int
@@ -39,7 +39,7 @@ SkipUntilEol(FILE *stream) {
 }
 
 int
-ReadHpcgDat(int *localDimensions, int *secondsPerRun, int *localProcDimensions) {
+ReadHpcgDat(int *localDimensions, int *secondsPerRun) {
   FILE * hpcgStream = fopen("hpcg.dat", "r");
 
   if (! hpcgStream)
@@ -55,17 +55,16 @@ ReadHpcgDat(int *localDimensions, int *secondsPerRun, int *localProcDimensions) 
 
   SkipUntilEol( hpcgStream ); // skip the rest of the second line
 
+  printf("HAT: secondsPerRun = %p\n", secondsPerRun);
+  //exit(1);
+
   if (secondsPerRun!=0) { // Only read number of seconds if the pointer is non-zero
     if (fscanf(hpcgStream, "%d", secondsPerRun) != 1 || secondsPerRun[0] < 0)
       secondsPerRun[0] = 30 * 60; // 30 minutes
+
+      printf("HAT: secondsPerRun[0] = %d\n", secondsPerRun[0]);
   }
 
-  SkipUntilEol( hpcgStream ); // skip the rest of the third line
-
-  for (int i = 0; i < 3; ++i)
-    // the user didn't specify (or values are invalid) process dimensions
-    if (fscanf(hpcgStream, "%d", localProcDimensions+i) != 1 || localProcDimensions[i] < 1)
-      localProcDimensions[i] = 0; // value 0 means: "not specified" and it will be fixed later
 
   fclose(hpcgStream);
 

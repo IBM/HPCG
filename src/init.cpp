@@ -70,34 +70,37 @@ HPCG_Init(int * argc_p, char ** *argv_p, HPCG_Params & params) {
   char ** argv = *argv_p;
   char fname[80];
   int i, j, *iparams;
-  char cparams[][7] = {"--nx=", "--ny=", "--nz=", "--rt=", "--pz=", "--zl=", "--zu=", "--npx=", "--npy=", "--npz="};
+  char cparams[][6] = {"--nx=", "--ny=", "--nz=", "--rt="};
   time_t rawtime;
   tm * ptm;
   const int nparams = (sizeof cparams) / (sizeof cparams[0]);
-  bool broadcastParams = false; // Make true if parameters read from file.
 
   iparams = (int *)malloc(sizeof(int) * nparams);
 
   // Initialize iparams
   for (i = 0; i < nparams; ++i) iparams[i] = 0;
 
+  printf("iparams[3]=%d\n", iparams[3]);
+
   /* for sequential and some MPI implementations it's OK to read first three args */
   for (i = 0; i < nparams; ++i)
     if (argc <= i+1 || sscanf(argv[i+1], "%d", iparams+i) != 1 || iparams[i] < 10) iparams[i] = 0;
+
+  printf("iparams[3]=%d\n", iparams[3]);
 
   /* for some MPI environments, command line arguments may get complicated so we need a prefix */
   for (i = 1; i <= argc && argv[i]; ++i)
     for (j = 0; j < nparams; ++j)
       if (startswith(argv[i], cparams[j]))
-        if (sscanf(argv[i]+strlen(cparams[j]), "%d", iparams+j) != 1)
-          iparams[j] = 0;
+        if (sscanf(argv[i]+strlen(cparams[j]), "%d", iparams+j) != 1 || iparams[j] < 10) iparams[j] = 0;
+
+  printf("iparams[3]=%d\n", iparams[3]);
 
   // Check if --rt was specified on the command line
   int * rt  = iparams+3;  // Assume runtime was not specified and will be read from the hpcg.dat file
-  if (! iparams[3]) rt = 0; // If --rt was specified, we already have the runtime, so don't read it from file
+  if (iparams[3]) rt = 0; // If --rt was specified, we already have the runtime, so don't read it from file
   if (! iparams[0] && ! iparams[1] && ! iparams[2]) { /* no geometry arguments on the command line */
-    ReadHpcgDat(iparams, rt, iparams+7);
-    broadcastParams = true;
+    ReadHpcgDat(iparams, rt);
   }
 
   // Check for small or unspecified nx, ny, nz values
@@ -113,9 +116,7 @@ HPCG_Init(int * argc_p, char ** *argv_p, HPCG_Params & params) {
 
 // Broadcast values of iparams to all MPI processes
 #ifndef HPCG_NO_MPI
-  if (broadcastParams) {
-    MPI_Bcast( iparams, nparams, MPI_INT, 0, MPI_COMM_WORLD );
-  }
+  MPI_Bcast( iparams, nparams, MPI_INT, 0, MPI_COMM_WORLD );
 #endif
 
   params.nx = iparams[0];
@@ -123,13 +124,6 @@ HPCG_Init(int * argc_p, char ** *argv_p, HPCG_Params & params) {
   params.nz = iparams[2];
 
   params.runningTime = iparams[3];
-  params.pz = iparams[4];
-  params.zl = iparams[5];
-  params.zu = iparams[6];
-
-  params.npx = iparams[7];
-  params.npy = iparams[8];
-  params.npz = iparams[9];
 
 #ifndef HPCG_NO_MPI
   MPI_Comm_rank( MPI_COMM_WORLD, &params.comm_rank );
@@ -145,7 +139,6 @@ HPCG_Init(int * argc_p, char ** *argv_p, HPCG_Params & params) {
   #pragma omp parallel
   params.numThreads = omp_get_num_threads();
 #endif
-//  for (i = 0; i < nparams; ++i) std::cout << "rank = "<< params.comm_rank << " iparam["<<i<<"] = " << iparams[i] << "\n";
 
   time ( &rawtime );
   ptm = localtime(&rawtime);

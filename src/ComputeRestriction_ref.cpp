@@ -52,3 +52,44 @@ int ComputeRestriction_ref(const SparseMatrix & A, const Vector & rf) {
 
   return 0;
 }
+
+int ComputeRestriction(const SparseMatrix & A, const Vector & rf) {
+
+#if !defined(__IBMC__) && !defined(__IBMCPP__)
+
+  return(ComputeRestriction_ref(A, rf));
+
+#else
+
+  double * Axfv = A.mgData->Axf->values;
+  double * rfv = rf.values;
+  double * rcv = A.mgData->rc->values;
+  local_int_t * f2c = A.mgData->f2cOperator;
+
+#pragma disjoint (*Axfv, *rfv, *rcv, *f2c)
+
+  register local_int_t j;
+  register local_int_t jStart;
+  register local_int_t jEnd;
+  register local_int_t tID;
+
+  #pragma omp parallel private (j,jStart,jEnd,tID)
+  {
+    tID = omp_get_thread_num();
+//    jStart = rf.optimizationData[tID][0];
+//    jEnd   = rf.optimizationData[tID][1];
+   
+    jStart = A.Ac->optimizationData[tID][0];
+    jEnd   = A.Ac->optimizationData[tID][1];
+ 
+
+#if defined(__IBMC__) || defined(__IBMCPP__)
+//  #pragma ibm independent_loop
+#endif
+    for (j = jStart; j <= jEnd; ++j)
+        rcv[j] = rfv[f2c[j]] - Axfv[f2c[j]];
+  }
+
+  return 0;
+#endif
+}

@@ -17,4 +17,5 @@
 #include "Vector.hpp"
 #include "SparseMatrix.hpp"
 int ComputeRestriction_ref(const SparseMatrix & A, const Vector & rf);
+int ComputeRestriction(const SparseMatrix & A, const Vector & rf);
 #endif // COMPUTERESTRICTION_REF_HPP

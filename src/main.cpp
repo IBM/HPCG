@@ -61,6 +61,10 @@ using std::endl;
 #include "TestSymmetry.hpp"
 #include "TestNorms.hpp"
 
+#if defined(__IBMC__) || defined(__IBMCPP__)
+#include "ibm.hpp"
+#endif
+
 /*!
   Main driver program: Construct synthetic problem, run V&V tests, compute benchmark parameters, run benchmark, report results.
 
@@ -119,7 +123,7 @@ int main(int argc, char * argv[]) {
 
   // Construct the geometry and linear system
   Geometry * geom = new Geometry;
-  GenerateGeometry(size, rank, params.numThreads, params.pz, params.zl, params.zu, nx, ny, nz, params.npx, params.npy, params.npz, geom);
+  GenerateGeometry(size, rank, params.numThreads, nx, ny, nz, geom);
 
   ierr = CheckAspectRatio(0.125, geom->npx, geom->npy, geom->npz, "process grid", rank==0);
   if (ierr)
@@ -185,12 +189,20 @@ int main(int argc, char * argv[]) {
   int numberOfCalls = 10;
   if (quickPath) numberOfCalls = 1; //QuickPath means we do on one call of each block of repetitive code
   double t_begin = mytimer();
+#if defined(__HAVE_HPM) || defined(__HAVE_MAIN_HPM)
+//  HPM_Start("SpMV_MG");
+  //summary_start();
+#endif
   for (int i=0; i< numberOfCalls; ++i) {
     ierr = ComputeSPMV_ref(A, x_overlap, b_computed); // b_computed = A*x_overlap
     if (ierr) HPCG_fout << "Error in call to SpMV: " << ierr << ".\n" << endl;
     ierr = ComputeMG_ref(A, b_computed, x_overlap); // b_computed = Minv*y_overlap
     if (ierr) HPCG_fout << "Error in call to MG: " << ierr << ".\n" << endl;
   }
+#if defined(__HAVE_HPM) || defined(__HAVE_MAIN_HPM)
+  //summary_stop();
+//  HPM_Stop("SpMV_MG");
+#endif
   times[8] = (mytimer() - t_begin)/((double) numberOfCalls);  // Total time divided by number of calls.
 #ifdef HPCG_DEBUG
   if (rank==0) HPCG_fout << "Total SpMV+MG timing phase execution time in main (sec) = " << mytimer() - t1 << endl;
@@ -218,7 +230,7 @@ int main(int argc, char * argv[]) {
   int err_count = 0;
   for (int i=0; i< numberOfCalls; ++i) {
     ZeroVector(x);
-    ierr = CG_ref( A, data, b, x, refMaxIters, tolerance, niters, normr, normr0, &ref_times[0], true);
+    ierr = CG_ref( A, data, b, x, refMaxIters, tolerance, niters, normr, normr0, &ref_times[0], true, true);
     if (ierr) ++err_count; // count the number of errors in CG
     totalNiters_ref += niters;
   }
@@ -281,7 +293,7 @@ int main(int argc, char * argv[]) {
   for (int i=0; i< numberOfCalls; ++i) {
     ZeroVector(x); // start x at all zeros
     double last_cummulative_time = opt_times[0];
-    ierr = CG( A, data, b, x, optMaxIters, refTolerance, niters, normr, normr0, &opt_times[0], true);
+    ierr = CG( A, data, b, x, optMaxIters, refTolerance, niters, normr, normr0, &opt_times[0], true, true);
     if (ierr) ++err_count; // count the number of errors in CG
     if (normr / normr0 > refTolerance) ++tolerance_failures; // the number of failures to reduce residual
 
@@ -331,6 +343,16 @@ int main(int argc, char * argv[]) {
   testnorms_data.samples = numberOfCgSets;
   testnorms_data.values = new double[numberOfCgSets];
 
+#if defined(__HAVE_HPM) || defined(__HAVE_MAIN_HPM)
+//#pragma omp parallel num_threads(1)
+//{
+  //L1P_PatternConfigure(10000000000);
+  //L1P_PatternConfigure(100000000);
+//}
+  summary_start();
+  HPM_Start("CG_Timing");
+#endif
+
   for (int i=0; i< numberOfCgSets; ++i) {
     ZeroVector(x); // Zero out x
     ierr = CG( A, data, b, x, optMaxIters, optTolerance, niters, normr, normr0, &times[0], true);
@@ -338,6 +360,15 @@ int main(int argc, char * argv[]) {
     if (rank==0) HPCG_fout << "Call [" << i << "] Scaled Residual [" << normr/normr0 << "]" << endl;
     testnorms_data.values[i] = normr/normr0; // Record scaled residual from this run
   }
+
+#if defined(__HAVE_HPM) || defined(__HAVE_MAIN_HPM)
+  HPM_Stop("CG_Timing");
+  summary_stop();
+//#pragma omp parallel num_threads(1)
+//{
+//  L1P_PatternUnconfigure();
+//}
+#endif
 
   // Compute difference between known exact solution and computed solution
   // All processors are needed here.
