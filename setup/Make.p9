@@ -116,9 +116,9 @@ HPCG_DEFS     = $(HPCG_OPTS) $(HPCG_INCLUDES)
 # ----------------------------------------------------------------------
 # - IBM includes / libraries / specifics -------------------------------
 # ----------------------------------------------------------------------
-MASS_VERSION = 9.1.0
+MASS_VERSION = 8.1.6
 MASS_INCLUDE = -I/opt/ibm/xlmass/${MASS_VERSION}/include
-MASS_LIB = -L/opt/ibm/xlmass/${MASS_VERSION}/lib -lmassvp8 -lmass_simdp8 -lmass
+MASS_LIB = -L/opt/ibm/xlmass/${MASS_VERSION}/lib -lmassvp9 -lmass_simdp9 -lmass
 
 # ----------------------------------------------------------------------
 # - Compilers / linkers - Optimization flags ---------------------------
@@ -130,7 +130,7 @@ CXXFLAGS     = $(HPCG_DEFS) $(MASS_INCLUDE) \
                -qhot=level=2 -qipa=level=2 -qinline \
                -qsmp=omp -qthreaded \
                -qsimd -qaltivec \
-               -q64 -qarch=pwr8 -qtune=pwr8
+               -q64 -qarch=pwr9 -qtune=pwr9
 #
 LINKER       = $(CXX)
 LINKFLAGS    = $(CXXFLAGS) $(MASS_LIB)
