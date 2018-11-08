@@ -114,16 +114,27 @@ HPCG_OPTS     =
 HPCG_DEFS     = $(HPCG_OPTS) $(HPCG_INCLUDES)
 #
 # ----------------------------------------------------------------------
+# - IBM includes / libraries / specifics -------------------------------
+# ----------------------------------------------------------------------
+MASS_VERSION = 9.1.0
+MASS_INCLUDE = -I/opt/ibm/xlmass/${MASS_VERSION}/include
+MASS_LIB = -L/opt/ibm/xlmass/${MASS_VERSION}/lib -lmassvp8 -lmass_simdp8 -lmass
+
+ESSL_LIB = /usr/lib/libesslsmp.so
+# ----------------------------------------------------------------------
 # - Compilers / linkers - Optimization flags ---------------------------
 # ----------------------------------------------------------------------
 #
 CXX          = mpixlC
-CXXFLAGS     = $(HPCG_DEFS) -O3 -I/opt/ibm/xlmass/9.1.0/include \
-               -O5 -qmaxmem=-1 -qalign=linuxppc -qnostrict -qhot=level=2 -qipa=level=2 -qinline -qsmp=omp -qthreaded -qsimd -qaltivec -q64 -qarch=pwr8 -qtune=pwr8 -qlist -qreport  -qsource
+CXXFLAGS     = $(HPCG_DEFS) -O3 $MASS_INCLUDE \
+               -O5 -qmaxmem=-1 -qalign=linuxppc -qnostrict \
+               -qhot=level=2 -qipa=level=2 -qinline \
+               -qsmp=omp -qthreaded \
+               -qsimd -qaltivec \
+               -q64 -qarch=pwr8 -qtune=pwr8
 #
 LINKER       = $(CXX)
-LINKFLAGS    = $(CXXFLAGS) -L/opt/ibm/xlmass/9.1.0/lib -lmassvp8 -lmass_simdp8 -lmass
-
+LINKFLAGS    = $(CXXFLAGS) $MASS_LIB $ESSL_LIB
 #
 ARCHIVER     = ar
 ARFLAGS      = r
