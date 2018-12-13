@@ -1,18 +1,11 @@
-/*
- * ibm.h
- *
- *  Created on: Jun 17, 2015
- *      Author: acm
- */
-
 #if defined(__HAVE_HPM) || defined(__HAVE_MAIN_HPM)
 #ifdef __cplusplus
 extern "C" {
 #endif
-    void HPM_Start(char *);
-    void HPM_Stop(char *);
-    void summary_start();
-    void summary_stop();
+  void HPM_Start(char *);
+  void HPM_Stop(char *);
+  void summary_start();
+  void summary_stop();
 #ifdef __cplusplus
 }
 #endif
@@ -40,7 +33,6 @@ void __alignx (int n, const void *addr);
 
 // TO ENABLE ELLPACK FORMAT
 // NOTE: This is a format with the diagonal always as first element and possibly inverse of the diagonal as last element
-// NOTE: The version without this is broken
 #define __HAVE_ELLPACK_FORMAT
 
 #if defined(__HAVE_ELLPACK_FORMAT)

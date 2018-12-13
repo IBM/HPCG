@@ -1,85 +1,117 @@
-########################################################
-# High Performance Conjugate Gradient Benchmark (HPCG) #
-########################################################
+################################################################################
+# Optimized High Performance Conjugate Gradient Benchmark (HPCG) for IBM BG/Q and IBM POWER9
+################################################################################
 
-Jack Dongarra and Michael Heroux and Piotr Luszczek
 
-Revision: 3.0
-
-Date: November 11, 2015
-
-## Introduction ##
-
+## 1. Introduction ##
 HPCG is a software package that performs a fixed number of multigrid preconditioned
-(using a symmetric Gauss-Seidel smoother) conjugate gradient (PCG) iterations using double
-precision (64 bit) floating point values.
+(using a symmetric Gauss-Seidel smoother) conjugate gradient (PCG) iterations.
 
-The HPCG rating is is a weighted GFLOP/s (billion floating operations per second) value
-that is composed of the operations performed in the PCG iteration phase over
-the time taken.  The overhead time of problem construction and any modifications to improve
-performance are divided by 500 iterations (the amortization weight) and added to the runtime.
+We present an optimized CPU-only version of HPCG on IBM processors. It features the following optimizations:
+- explicit SIMD vectorization, data prefetching, asynchronous MPI communication
+- smart pivoting: new OpenMP parallelization approach for SYMGS, the most time consuming kernel of HPCG
 
-Integer arrays have global and local
-scope (global indices are unique across the entire distributed memory system,
-local indices are unique within a memory image).  Integer data for global/local
-indices have three modes:
+Fine tuning of several parameters, such as
+- Local problem size
+- Number of MPI tasks and OpenMP threads
 
-* 32/32 - global and local integers are 32-bit
-* 64/32 - global integers are 64-bit, local are 32-bit
-* 64/64 - global and local are 64-bit.
+The code achieves 1.6% of the peak performance on BG/Q and more than 3% on POWER9.
 
-These various modes are required in order to address sufficiently big problems
-if the range of indexing goes above 2^31 (roughly 2.1B), or to conserve storage
-costs if the range of indexing is less than 2^31.
+## 2. Optimizations ##
+### 2.1 IBM BG/Q
+#### a. Smart pivoting for parallel SYSMGS
+A parallel implementation of SYMGS requires coloring, which has two undesired side effects: a) slows down convergence, b) limit cache reuse.
 
-The  HPCG  software  package requires the availibility on your system of an
-implementation of the  Message Passing Interface (MPI) if enabling the MPI
-build of HPCG, and a compiler that supports OpenMP syntax. An implementation
-compliant with MPI version 1.1 is sufficient.
+Proposed solution: stencil discretization leads to a uniform (diagonal) matrix structure: we can rely on that
+observation to enable multithreaded parallelization. The idea of this approach is illustrated in the following image:
 
-## Installation ##
+![](./SmartPivoting.png)
 
-See the file `INSTALL` in this directory.
+#### b. Fine tuning
+- Strong compiler optimization (-O5, -qipa=level=2, -qhot=level=2, etc) but with little effect overall
+- AXPY and DOT manually SIMD vectorized (slightly better performances than auto-compiled versions)
+- Contiguous storage for matrix (to help hardware prefetching – very important on BG/Q)
+- Improve backward prefetching of Gauss-Seidel smoother with `__dcbt` instructions
+- Manual unrolling factor of 2 for SpMV, and slightly improved code
+- Use `Isend/Irecv` with a single `MPI_Waitall` call at the end (better overlap of communications)
+- Optimized local problem size
+  - A smaller problem size gives better MG and SPMV performance (better cache use)
+    ... however it also increases DOT `MPI_Allreduce` (due to wait time) – need to find the best compromise!
+  - We use `48x16x16` or `56x16x16` (on few racks) and `96x32x32` or `112x32x32` (on many racks)
 
-## Valid Runs ##
+### 2.2 IBM POWER9
+- The XLC (16.1.0) compiler optimizations for BG/Q remain the same  - still little effect overall
+- MPI configuration:
+  - One task per core
+  - Binding policy: `mpirun --bind–to core --map-by core`
+- OpenMP configuration:
+  - two threads per task (core)
+  - `OMP_PROC_BIND=FALSE` (no explicit binding to the hardware threads of the core)
+  - `OMP_WAIT_POLICY=ACTIVE` (no need for yield)
+- Problem size
+  - Local domain is set to `160x160x96` (or `160x96x160`)
+  - Larger than BG/Q due to higher memory bandwidth
 
-HPCG can be run in just a few minutes from start to finish.  However, official
-runs must be at least 1800 seconds (30 minutes) as reported in the output file.
-The Quick Path option is an exception for machines that are in production mode
-prior to broad availability of an optimized version of HPCG 3.0 for a given platform.
-In this situation (which should be confirmed by sending a note to the HPCG Benchmark
-owners) the Quick Path option can be invoked by setting the run time parameter equal
-to 0 (zero).
+## 3. Results
+### 3.1 Vulcan @ LLNL (BG/Q)
+- https://www.top500.org/system/177732
+- 24K nodes
+- 32 MPI tasks/node, 2 threads each
+- Local domain dimension: 112x32x32
+- 80.9 TFlop/s (3.29 GFlop/s per node)
+- Fraction of peak performance: 1.6%
 
-A valid run must also execute a problem size that is large enough so that data
-arrays accessed in the CG iteration loop do not fit in the cache of the device
-in a way that would be unrealistic in a real application setting.  Presently this
-restriction means that the problem size should be large enough to occupy a
-significant fraction of *main memory*, at least 1/4 of the total.
+### 3.2 Sequoia @ LLNL (BG/Q)
+- https://www.top500.org/system/177556
+- 96K nodes
+- 32 MPI tasks/node, 2 threads each
+- Local domain dimension: 112x32x32
+- 330.4 Tflop/s (3.36 GFlop/s per node)
+  - #10 in HPGC results list (June 2018)
+- Fraction of peak performance: 1.6%
 
-Future memory system architectures may require restatement of the specific memory
-size requirements.  But the guiding principle will always be that the problem
-size should reflect what would be reasonable for a real sparse iterative solver.
 
-## Documentation ##
+### 3.3 Marenostrum P9 CTE @ BSC (Power9)
+#### System
+- https://www.top500.org/system/179442
+  - #255 in TOP500 (June 2018)
+- 54 nodes organized in 3 racks
+- 52 compute and 2 login nodes
+- Each node:
+ - 2x IBM POWER9 20C 3.1GHz
+ - 40 cores with four-way multithreading variant SMT4
+ - 4x NVIDIA Tesla V100
+- Interconnection network: Dual-rail Mellanox EDR Infiniband
 
-The source code documentation can be generated with a Doxygen (version 1.8 or
-newer). In this directory type:
+### Experiments
+- 32 nodes
+- 40 MPI tasks/node, 2 threads each
+- Local domain dimension: 160x160x96
+- 1193.4 GFlop/s (37.3 GFlop/s per node)
+- Fraction of peak: > 3% (depends on the actual core frequency)
 
-    doxygen tools/hpcg.dox
+![](./BSC-P9-CTE-scaling.png)
 
-Doxygen will then generate various output formats in the `out` directory.
+## 4. Installation and Testing ##
+You can read the general instructions provided in the file `INSTALL` in this directory.
 
-## Tuning ##
+According to them, you can create a custom directory, ``build`` in
+this example, for the results of compilation and linking:
 
-See the file `TUNING` in this directory.
+    mkdir build
 
-## Bugs ##
+Next, go this new directory and use the ``configure`` script to create the
+build infrastructure:
 
-Known problems and bugs with this release are documented in the file
-`BUGS`.
+    cd build
+    ./configure <arch>
 
-## Further information ##
+For IBM platforms, `<arch>` can be `bgq`, `p8` or `p9`, for BG/Q, Power8 and Power9 respectively.
 
-Check out  the website  http://www.hpcg-benchmark.org/ for the latest
-information and performance results.
+You do not have to modify any of the compile time options that have been already set.
+The optimized HPCG version is compiled with MPI and OpenMP enabled.
+
+
+## 5. BOF presentation at SC18
+The performance results of the optimized HPCG version on IBM Power9 were presented at a [BOF session at SC18]( https://www.hpcg-benchmark.org/custom/index.html?lid=154&slid=298).
+The presentation slides are available here: [Porting Optimized HPCG 3.1 for IBM BG/Q to IBM POWER9](https://www.hpcg-benchmark.org/downloads/sc18/HPCG_IBM_P9_v05.pdf).

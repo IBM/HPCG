@@ -29,10 +29,6 @@
 #include "ibm.hpp"
 #endif
 
-// TODO - REMOVE THESE ARE JUST FOR DEBUGGING
-#include <cstdio>
-#include <cstdlib>
-
 #include "hpcg.hpp"
 
 /*!
@@ -317,98 +313,3 @@ int ComputeSYMGS( const SparseMatrix & A, const Vector & r, Vector & x)
 
   return 0;
 }
-
-
-
-
-#if defined(YVES_OLD_IMPLEMENTATION)
-#if defined(__bgq__)
-//XXX: using a static var to learn the pattern only in the first call to ComputeSYMGS
-static int count = 0;
-#endif
-
-int ComputeSYMGS( const SparseMatrix & A, const Vector & r, Vector & x) {
-
-
-  assert(x.localLength==A.localNumberOfColumns); // Make sure x contain space for halo values
-
-  const local_int_t nrow = A.localNumberOfRows;
-  double ** matrixDiagonal = A.matrixDiagonal;  // An array of pointers to the diagonal entries A.matrixValues
-  const double * const rv = r.values;
-  double * const xv = x.values;
-
-#if defined(__bgq__)
-#pragma omp parallel
-{
-    if(count == 0)
-        L1P_PatternConfigure(1000000);
-
-    if(count == 0)
-        L1P_PatternStart(1);
-    else
-        L1P_PatternStart(0);
-}
-#endif
-
-  double * col_vec; //, *col_vec_b;
-  col_vec = (double*)malloc(1000*sizeof(double));
-
-  for (local_int_t i=0; i< nrow; i++) {
-    const double * const currentValues = A.matrixValues[i];
-    const local_int_t * const currentColIndices = A.mtxIndL[i];
-    const int currentNumberOfNonzeros = A.nonzerosInRow[i];
-    const double  currentDiagonal = matrixDiagonal[i][0]; // Current diagonal value
-    double sum = rv[i]; // RHS value
-
-    for (int j=0; j< currentNumberOfNonzeros; j++){
-      local_int_t curCol = currentColIndices[j];
-      col_vec[j] = xv[curCol];
-    }
-
-
-    //#pragma omp parallel for reduction ( + : sum)
-#if defined(__bgq__)
-    __alignx(16,currentValues);
-    __alignx(16,col_vec);
-#endif
-    for (int j=0; j< currentNumberOfNonzeros; j++) {
-      //local_int_t curCol = currentColIndices[j];
-      //sum -= currentValues[j] * xv[curCol];
-      sum -= currentValues[j] * col_vec[j];
-    }
-    sum += xv[i]*currentDiagonal; // Remove diagonal contribution from previous loop
-
-    xv[i] = sum/currentDiagonal;
-  }
-
-  // Now the back sweep.
-
-  for (local_int_t i=nrow-1; i>=0; i--) {
-    const double * const currentValues = A.matrixValues[i];
-    const local_int_t * const currentColIndices = A.mtxIndL[i];
-    const int currentNumberOfNonzeros = A.nonzerosInRow[i];
-    const double  currentDiagonal = matrixDiagonal[i][0]; // Current diagonal value
-    double sum = rv[i]; // RHS value
-
-    for (int j = 0; j< currentNumberOfNonzeros; j++) {
-      local_int_t curCol = currentColIndices[j];
-      sum -= currentValues[j]*xv[curCol];
-    }
-    sum += xv[i]*currentDiagonal; // Remove diagonal contribution from previous loop
-
-    xv[i] = sum/currentDiagonal;
-  }
-
-#if defined(__bgq__)
-#pragma omp parallel
-{
-    L1P_PatternStop();
-}
-#endif
-
-  free(col_vec);
-  count++;
-
-  return(0);
-}
-#endif

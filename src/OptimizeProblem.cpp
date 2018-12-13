@@ -239,7 +239,6 @@ int OptimizeMatrix(SparseMatrix & A, local_int_t * &pivot, const int& n_max_thre
   char         *  new_nonzerosInRow  = new char[nrows];
   double       ** new_matrixDiagonal = new double*[nrows];
   double       ** new_matrixValues   = new double*[nrows];
-//  global_int_t ** new_mtxIndG        = new global_int_t*[nrows];
   local_int_t  ** new_mtxIndL        = new local_int_t* [nrows];
   std::vector< global_int_t > new_localToGlobalMap(nrows);
 
@@ -249,7 +248,6 @@ int OptimizeMatrix(SparseMatrix & A, local_int_t * &pivot, const int& n_max_thre
 
   new_matrixValues[0] = new double[numberOfNonzerosPerRow*nrows];
   new_mtxIndL[0] = new local_int_t[numberOfNonzerosPerRow*nrows];
-  //new_mtxIndG[0] = new global_int_t[numberOfNonzerosPerRow*nrows];
   for (local_int_t i = 0 ; i < nrows ; ++i)
   {
       local_int_t p = pivot[i];
@@ -258,7 +256,6 @@ int OptimizeMatrix(SparseMatrix & A, local_int_t * &pivot, const int& n_max_thre
 
       new_matrixValues[i] =  new_matrixValues[0]   + i*numberOfNonzerosPerRow;
       new_mtxIndL[i] = new_mtxIndL[0] + i*numberOfNonzerosPerRow;
-  //    new_mtxIndG[i] = new_mtxIndG[0] + i*numberOfNonzerosPerRow;
   }
 #else
   for (local_int_t i = 0 ; i < nrows ; ++i)
@@ -269,10 +266,8 @@ int OptimizeMatrix(SparseMatrix & A, local_int_t * &pivot, const int& n_max_thre
 
     new_matrixValues[i] = new double      [new_nonzerosInRow[i]];
     new_mtxIndL[i]      = new local_int_t [new_nonzerosInRow[i]];
-//    new_mtxIndG[i]      = new global_int_t[new_nonzerosInRow[i]];
 
     delete [] A.matrixValues[i];
-//    delete [] A.mtxIndG[i];
   }
 #endif
 
@@ -282,9 +277,6 @@ int OptimizeMatrix(SparseMatrix & A, local_int_t * &pivot, const int& n_max_thre
 
   std::swap( A.matrixValues, new_matrixValues);
   delete [] new_matrixValues;
-
-//  std::swap( A.mtxIndG, new_mtxIndG);
-//  delete [] new_mtxIndG;
 
   // Start 2nd parallel region
   #pragma omp parallel
@@ -386,21 +378,6 @@ int OptimizeMatrix(SparseMatrix & A, local_int_t * &pivot, const int& n_max_thre
     {
       // Copy the new LocalToGlobalMap
       A.localToGlobalMap[i] = new_localToGlobalMap[i];
-
-/*
-      // Fix GlobalToLocalMap using new LocalToGlobalMap
-      A.globalToLocalMap[new_localToGlobalMap[i]] = i;
-
-      // Fix mtxIndG using new LocalToGlobalMap
-      for (local_int_t j = 0 ; j < A.nonzerosInRow[i] ; ++j)
-      {
-        local_ID = new_mtxIndL[i][j];
-        if (local_ID >= nrows)
-          // TODO This needs to be implemented
-        else
-          A.mtxIndG[i][j] = new_localToGlobalMap[local_ID];
-      }
-*/
     }
   }
 
@@ -429,34 +406,11 @@ int OptimizeMatrix(SparseMatrix & A, local_int_t * &pivot, const int& n_max_thre
 
 int OptimizeVectors(SparseMatrix& A, Vector& b,Vector& x,Vector& xexact, local_int_t * &pivot, const int& n_max_threads)
 {
-  // Permute arrays
-//  Vector new_b;
-//  Vector new_x;
-//  Vector new_xexact;
-
-  // Initialize new arrays
-//  InitializeVector(new_b,      b.localLength);
-//  InitializeVector(new_x,      x.localLength);
-//  InitializeVector(new_xexact, xexact.localLength);
-
   #pragma omp parallel for schedule(static)
   for (local_int_t i = 0 ; i < b.localLength ; ++i)
   {
     b.values[i] = 26.0 - ((double) (A.nonzerosInRow[i]-1));
-//    local_int_t p = pivot[i];
-
-//    new_b.values[i]      = b.values[p];
-//    new_x.values[i]      = x.values[p];
-//    new_xexact.values[i] = xexact.values[p];
   }
-
-//  CopyVector(new_b,b);
-//  CopyVector(new_x,x);
-//  CopyVector(new_xexact,xexact);
-
-//  DeleteVector(new_b);
-//  DeleteVector(new_x);
-//  DeleteVector(new_xexact);
 
   return(0);
 }
@@ -586,11 +540,9 @@ void OptimizeMatrixFormatEllpack(SparseMatrix & A)
   const int nrows = A.localNumberOfRows;
 
   // Allocate
-//  A.optimizedEllpackDiag = new double*[nrows];
   A.optimizedEllpackVals = new double[ELLPACK_SIZE*nrows];
   A.optimizedEllpackCols = new local_int_t[ELLPACK_SIZE*nrows];
   allocatedMemory2Optimize += ( ELLPACK_SIZE*nrows )        * sizeof (local_int_t) +
-//                              ( ELLPACK_SIZE*nrows + nrows) * sizeof (double);
                               ( ELLPACK_SIZE*nrows ) * sizeof (double);
 
   #pragma omp parallel
@@ -611,7 +563,6 @@ void OptimizeMatrixFormatEllpack(SparseMatrix & A)
         {
           A.optimizedEllpackCols[i*ELLPACK_SIZE] = A.mtxIndL[i][j];
           A.optimizedEllpackVals[i*ELLPACK_SIZE] = A.matrixValues[i][j];
-          //A.optimizedEllpackDiag[i] = &(A.optimizedEllpackVals[i*ELLPACK_SIZE]);
         }
         if (A.mtxIndL[i][j] > i)
         {
@@ -789,7 +740,7 @@ int OptimizeProblem(SparseMatrix & A, CGData & data, Vector & b, Vector & x, Vec
 #endif
 
   // DEBUG
-#if 1 //defined(DEBUG_PIVOTING)
+#if defined(DEBUG_PIVOTING)
 
   int rank;
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
