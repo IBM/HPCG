@@ -84,16 +84,12 @@ int ComputeWAXPBY(const local_int_t n, const double alpha, const Vector & x,
 #endif
       if (xv == wv)
       {
-//        #pragma disjoint (*xv, *yv)
-//        __alignx(32,xv);
-//        __alignx(32,yv);
-
         #pragma omp parallel private (j,jStart,jEnd,tID)
         {
           tID = omp_get_thread_num();
           jStart = x.optimizationData[tID][0];
           jEnd   = x.optimizationData[tID][1];
-  
+
           // NOTE: we check a priori during the optimization that n is divisible by 4!
 #if defined(__bgq__)
           for (j = jStart; j <= jEnd; j+=4)
@@ -107,17 +103,13 @@ int ComputeWAXPBY(const local_int_t n, const double alpha, const Vector & x,
       }
       else if (yv == wv)
       {
-//        #pragma disjoint (*xv, *yv)
-//        __alignx(32,xv);
-//        __alignx(32,yv);
-
         #pragma omp parallel private (j,jStart,jEnd,tID)
         {
           tID = omp_get_thread_num();
           jStart = x.optimizationData[tID][0];
           jEnd   = x.optimizationData[tID][1];
 
-          // NOTE: we check a priori during the optimization that n is divisible by 4!        
+          // NOTE: we check a priori during the optimization that n is divisible by 4!
 #if defined(__bgq__)
           for (j = jStart; j <= jEnd; j+=4)
             vec_st(vec_madd(vec_ld(0, &yv[j]), b_vd, vec_ld(0, &xv[j])), 0, &yv[j]);
@@ -130,11 +122,6 @@ int ComputeWAXPBY(const local_int_t n, const double alpha, const Vector & x,
       }
       else
       {
-//        #pragma disjoint (*xv, *yv, *wv)
-//        __alignx(32,xv);
-//        __alignx(32,yv);
-//        __alignx(32,wv);
-
         #pragma omp parallel private (j,jStart,jEnd,tID)
         {
           tID = omp_get_thread_num();
@@ -156,9 +143,6 @@ int ComputeWAXPBY(const local_int_t n, const double alpha, const Vector & x,
     else
     {
       // BASICALLY THIS IS A COPY - STRANGE THEY DO IT WITH AXPY
-//    #pragma disjoint (*xv, *wv)
-//    __alignx(32,xv);
-//    __alignx(32,wv);
 
       #pragma omp parallel private (j,jStart,jEnd,tID)
       {
@@ -180,7 +164,7 @@ int ComputeWAXPBY(const local_int_t n, const double alpha, const Vector & x,
   }
   else
   {
-    // TODO - FINISH IMPLEMENTATION - NOT NEED IN THIS BENCHMARK
+    // TODO - FINISH IMPLEMENTATION - NOT NEEDED IN THIS BENCHMARK
     printf("WAXPBY: Alpha != 1.0: %22.16e\n", alpha);
 
     return -1;

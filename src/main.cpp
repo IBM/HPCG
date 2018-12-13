@@ -189,20 +189,14 @@ int main(int argc, char * argv[]) {
   int numberOfCalls = 10;
   if (quickPath) numberOfCalls = 1; //QuickPath means we do on one call of each block of repetitive code
   double t_begin = mytimer();
-#if defined(__HAVE_HPM) || defined(__HAVE_MAIN_HPM)
-//  HPM_Start("SpMV_MG");
-  //summary_start();
-#endif
+
   for (int i=0; i< numberOfCalls; ++i) {
     ierr = ComputeSPMV_ref(A, x_overlap, b_computed); // b_computed = A*x_overlap
     if (ierr) HPCG_fout << "Error in call to SpMV: " << ierr << ".\n" << endl;
     ierr = ComputeMG_ref(A, b_computed, x_overlap); // b_computed = Minv*y_overlap
     if (ierr) HPCG_fout << "Error in call to MG: " << ierr << ".\n" << endl;
   }
-#if defined(__HAVE_HPM) || defined(__HAVE_MAIN_HPM)
-  //summary_stop();
-//  HPM_Stop("SpMV_MG");
-#endif
+
   times[8] = (mytimer() - t_begin)/((double) numberOfCalls);  // Total time divided by number of calls.
 #ifdef HPCG_DEBUG
   if (rank==0) HPCG_fout << "Total SpMV+MG timing phase execution time in main (sec) = " << mytimer() - t1 << endl;
@@ -344,11 +338,6 @@ int main(int argc, char * argv[]) {
   testnorms_data.values = new double[numberOfCgSets];
 
 #if defined(__HAVE_HPM) || defined(__HAVE_MAIN_HPM)
-//#pragma omp parallel num_threads(1)
-//{
-  //L1P_PatternConfigure(10000000000);
-  //L1P_PatternConfigure(100000000);
-//}
   summary_start();
   HPM_Start("CG_Timing");
 #endif
@@ -364,10 +353,6 @@ int main(int argc, char * argv[]) {
 #if defined(__HAVE_HPM) || defined(__HAVE_MAIN_HPM)
   HPM_Stop("CG_Timing");
   summary_stop();
-//#pragma omp parallel num_threads(1)
-//{
-//  L1P_PatternUnconfigure();
-//}
 #endif
 
   // Compute difference between known exact solution and computed solution

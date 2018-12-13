@@ -76,12 +76,9 @@ int ComputeRestriction(const SparseMatrix & A, const Vector & rf) {
   #pragma omp parallel private (j,jStart,jEnd,tID)
   {
     tID = omp_get_thread_num();
-//    jStart = rf.optimizationData[tID][0];
-//    jEnd   = rf.optimizationData[tID][1];
-   
+
     jStart = A.Ac->optimizationData[tID][0];
     jEnd   = A.Ac->optimizationData[tID][1];
- 
 
 #if defined(__IBMC__) || defined(__IBMCPP__)
 //  #pragma ibm independent_loop

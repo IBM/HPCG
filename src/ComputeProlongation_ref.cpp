@@ -53,12 +53,6 @@ int ComputeProlongation_ref(const SparseMatrix & Af, Vector & xf) {
 
 int ComputeProlongation(const SparseMatrix & Af, Vector & xf) {
 
-//#if !defined(__IBMC__) && !defined(__IBMCPP__)
-
-//  return(ComputeProlongation_ref(Af, xf));
-
-//#else
-
   double * xfv = xf.values;
   double * xcv = Af.mgData->xc->values;
   local_int_t * f2c = Af.mgData->f2cOperator;
@@ -84,5 +78,4 @@ int ComputeProlongation(const SparseMatrix & Af, Vector & xf) {
   }
 
   return 0;
-//#endif
 }

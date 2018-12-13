@@ -202,15 +202,11 @@ inline void CopyMatrixDiagonal(SparseMatrix & A, Vector & diagonal) {
  */
 inline void ReplaceMatrixDiagonal(SparseMatrix & A, Vector & diagonal) {
     double ** curDiagA = A.matrixDiagonal;
-//#if defined (__HAVE_ELLPACK_FORMAT)
-//    double ** curDiagAEllpack = A.optimizedEllpackDiag;
-//#endif
     double * dv = diagonal.values;
     assert(A.localNumberOfRows==diagonal.localLength);
     for (local_int_t i=0; i<A.localNumberOfRows; ++i)
     {
 #if defined (__HAVE_ELLPACK_FORMAT)
-//      *(curDiagAEllpack[i]) = dv[i];
       A.optimizedEllpackVals[i*ELLPACK_SIZE]                = dv[i];
       A.optimizedEllpackVals[i*ELLPACK_SIZE+ELLPACK_SIZE-1] = 1./dv[i];
 #else
@@ -219,6 +215,7 @@ inline void ReplaceMatrixDiagonal(SparseMatrix & A, Vector & diagonal) {
     }
   return;
 }
+
 /*!
   Deallocates the members of the data structure of the known system matrix provided they are not 0.
 

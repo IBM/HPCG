@@ -128,19 +128,6 @@ int InitializeMatrixOptimizationData(SparseMatrix& A, const int& n_threads, cons
                                                                // (initialized as last row of previous block)
         A.optimizationData[i][13] =  A.optimizationData[i][0]; // OK
       }
-/*    // OLD VERSION
-      // Forward-Sweep
-      A.optimizationData[i][2] = block_size * (j + 1);     // First row with extra-diag dependency
-                                                           // (initialized as first row of next block)
-      A.optimizationData[i][3] = A.optimizationData[i][0]; // ID of first row that does not create any extra-diag dependency for next thread
-                                                           // (initialized as first row of the block)
-
-      // Backward-Sweep
-      A.optimizationData[i][4] = block_size * j - 1;       // First row (from bottom) with extra-diag dependency
-                                                           // (initialized as last row of previous block)
-      A.optimizationData[i][5] = A.optimizationData[i][1]; // ID of first row (from bottom) that does not create any extra-diag dependency for the previous thread
-                                                           // (initialized as last row of the block)
-*/
       ++j;
     }
     else
@@ -175,19 +162,6 @@ int InitializeMatrixOptimizationData(SparseMatrix& A, const int& n_threads, cons
       A.optimizationData[i][12] = -1;
       A.optimizationData[i][13] =  0;
 
-/*
-      // Forward-Sweep
-      A.optimizationData[i][2] = -1;                       // First row with extra-diag dependency
-                                                           // (initialized as first row of next block)
-      A.optimizationData[i][3] = -1;                       // ID of first row that does not create any extra-diag dependency for next thread
-                                                           // (initialized as first row of the block)
-
-      // Backward-Sweep
-      A.optimizationData[i][4] = 0;                        // First row (from bottom) with extra-diag dependency
-                                                           // (initialized as last row of previous block)
-      A.optimizationData[i][5] = 0;                        // ID of first row (from bottom) that does not create any extra-diag dependency for the previous thread
-                                                           // (initialized as last row of the block)
-*/
     }
   }
 
@@ -625,21 +599,7 @@ void OptimizeMatrixFormatEllpack(SparseMatrix & A)
     for (local_int_t i = A.optimizationData[tID][0] ; i <= A.optimizationData[tID][1] ; ++i)
     {
       local_int_t j = 0;
-#if 0
-      for (; j < A.nonzerosInRow[i] ; ++j)
-      {
-        A.optimizedEllpackVals[i*ELLPACK_SIZE+j] = A.matrixValues[i][j];
-        A.optimizedEllpackCols[i*ELLPACK_SIZE+j] = A.mtxIndL[i][j];
 
-        if (A.mtxIndL[i][j] == i)
-          A.optimizedEllpackDiag[i] = &(A.optimizedEllpackVals[i*ELLPACK_SIZE+j]);
-      }
-      for (; j < ELLPACK_SIZE ; ++j)
-      {
-        A.optimizedEllpackVals[i*ELLPACK_SIZE+j] = 0.;
-        A.optimizedEllpackCols[i*ELLPACK_SIZE+j] = 0;
-      }
-#else
       for (; j < A.nonzerosInRow[i] ; ++j)
       {
         if (A.mtxIndL[i][j] < i)
@@ -666,9 +626,7 @@ void OptimizeMatrixFormatEllpack(SparseMatrix & A)
       }
 #if !defined(__HAVE_ELLPACK_FORMAT_WITHOUTDIAG)
       // Adding the inverse of the diagonal as last column
-//      A.optimizedEllpackVals[i*ELLPACK_SIZE+j] = 1. / (*(A.optimizedEllpackDiag[i]));
       A.optimizedEllpackVals[i*ELLPACK_SIZE+j] = 1. / A.optimizedEllpackVals[i*ELLPACK_SIZE];
-#endif
 #endif
     }
   }
@@ -689,7 +647,6 @@ void OptimizeMatrixFormatEllpack(SparseMatrix & A)
   }
 
   allocatedMemory2Optimize -= ( MAX_ELEMENTS_PER_ROW*nrows ) * sizeof (local_int_t) +
-//                              ( ELLPACK_SIZE*nrows + nrows) * sizeof (double);
                               ( MAX_ELEMENTS_PER_ROW*nrows + nrows ) * sizeof (double);
 }
 #endif

@@ -28,13 +28,11 @@ void __alignx (int n, const void *addr);
 
 #if defined(__bgq__) || defined(__PPC64__)
 #include <builtins.h>
-//#include "essl.h"
 #endif
 
 #if defined(__bgq__)
 #include <spi/include/l1p/sprefetch.h>
 #include <spi/include/l1p/pprefetch.h>
-//#include "pprefetch.h"
 #endif
 
 // TO ENABLE THE CONSECUTIVE MEMORY ALLOCATION
