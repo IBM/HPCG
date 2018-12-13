@@ -113,7 +113,7 @@ Next, go this new directory and use the ``configure`` script to create the
 build infrastructure:
 
     cd build
-    ./configure <arch>
+    ../configure <arch>
 
 For IBM platforms, `<arch>` can be `bgq`, `p8` or `p9`, for IBM BG/Q, IBM POWER8 and POWER9 respectively.
 
