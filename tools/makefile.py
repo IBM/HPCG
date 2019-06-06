@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+from __future__ import print_function
 import os
 import re
 
@@ -19,13 +20,13 @@ def generate_rule(fname):
     if mtch:
       deps.append(mtch.group(1))
 
-  print "%s.o:" % base, fname,
+  print("%s.o:" % base, fname, end=' ')
   for d in deps:
-    print d,
-  print "\n"
+    print(d, end=' ')
+  print("\n")
 
 def usage(argv0):
-  print "Usage:\n", argv0, "[--prefix=path]"
+  print("Usage:\n", argv0, "[--prefix=path]")
 
 def main(argv):
 
