@@ -48,7 +48,7 @@ def tokenize(expr_or_stmt):
                 print(matched.expand)
 
         else:
-            raise ValueError, repr(working_val)
+            raise ValueError(repr(working_val))
 
     return tokens
 
@@ -65,7 +65,7 @@ def cplusplus_dtype(arg):
         pre_each = tokens[1][1]
         post_each = ""
     else:
-        raise ValueError, repr(tokens)
+        raise ValueError(repr(tokens))
 
     return ((pre_all, pre_each, post_each), name)
 

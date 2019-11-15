@@ -7,6 +7,7 @@ Typical invocation:
 
 python tools/replace_header.py src/*.[hc]pp testing/*.cpp
 """
+from __future__ import print_function
 
 import sha
 
@@ -34,7 +35,7 @@ def replace_header(filename):
 
   begin_idx = data.find(comment)
   end_idx = data.find(comment, begin_idx+1) + len(comment)
-  print begin_idx, end_idx-begin_idx, sha.sha(data[begin_idx:end_idx]).hexdigest(), filename
+  print(begin_idx, end_idx-begin_idx, sha.sha(data[begin_idx:end_idx]).hexdigest(), filename)
 
   if data[begin_idx:end_idx] != HEADER:
     fobj = open(filename, "w")
